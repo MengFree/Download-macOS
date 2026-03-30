@@ -30,13 +30,12 @@ env:
 
 jobs:
   build:
-    # ✅ 修复：使用GitHub官方支持的唯一标签，解决配置不支持报错
     runs-on: macos-latest
     if: github.repository == 'MengFree/Download-macOS'
     steps:
       - uses: actions/checkout@v4
 
-      # 🔥 核心：清理Runner空间（释放10GB+，解决No space报错）
+      # 清理Runner冗余文件，释放10GB+空间（解决磁盘满报错）
       - name: Free Up Disk Space
         run: |
           sudo rm -rf /Library/Developer/CoreSimulator
@@ -52,12 +51,12 @@ jobs:
           echo "installer_version=${string//*v/}" >> $GITHUB_ENV
           echo "installer_name=${string// v*/}" >> $GITHUB_ENV
 
-      # 下载安装器
+      # 下载macOS安装器
       - name: Download macOS Installer
         run: |
           softwareupdate --fetch-full-installer --full-installer-version ${{ env.installer_version }}
 
-      # DMG 格式
+      # 生成DMG格式
       - if: github.event.inputs.file == 'dmg'
         name: Generate macOS DMG Installer
         run: |
@@ -70,7 +69,7 @@ jobs:
           sudo rm -rf /Applications/'Install macOS ${{ env.installer_name }}'.app
           sudo mv /tmp/'${{ env.installer_name }}'.dmg ~/Desktop/'${{ env.installer_name }}'.dmg
 
-      # ISO 格式
+      # 生成ISO格式（核心修复版）
       - if: github.event.inputs.file == 'iso'
         name: Generate macOS ISO Installer
         run: |
@@ -81,25 +80,25 @@ jobs:
           sleep 10
           hdiutil eject -force /Volumes/'Install macOS ${{ env.installer_name }}'
           
-          # 释放超大空间
+          # 删除安装器，释放超大空间
           sudo rm -rf /Applications/'Install macOS ${{ env.installer_name }}'.app
           
-          # 转换ISO
+          # 转换为ISO
           hdiutil convert /tmp/'${{ env.installer_name }}'.dmg -format UDTO -o ~/Desktop/'${{ env.installer_name }}'
           mv -v ~/Desktop/'${{ env.installer_name }}'.cdr ~/Desktop/'${{ env.installer_name }}'.iso
           sudo rm -fv /tmp/'${{ env.installer_name }}'.dmg
 
-      # ZIP 格式
+      # 生成ZIP格式
       - if: github.event.inputs.file == 'zip'
         name: Generate macOS ZIP Installer
         run: |
           cd /Applications
           zip -r 'Install macOS ${{ env.installer_name }}.zip' 'Install macOS ${{ env.installer_name }}.app'
-          mv -v 'Install macOS ${{ env.installer_name }}'.zip ~/Desktop/'${{ env.installer_name }}.zip'
+          mv -v 'Install macOS ${{ env.installer_name }}.zip' ~/Desktop/'${{ env.installer_name }}.zip'
 
-      # 上传文件
+      # ✅ 唯一修正点：补全官方动作全称（解决语法报错）
       - name: Upload ${{ github.event.inputs.file }}
-        uses: upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: macOS ${{ env.installer_name }}
           path: "~/Desktop/${{ env.installer_name }}.${{ github.event.inputs.file }}"

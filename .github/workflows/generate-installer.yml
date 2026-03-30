@@ -46,34 +46,42 @@ jobs:
         run: |
           softwareupdate --fetch-full-installer --full-installer-version ${{ env.installer_version }}
 
-      # DMG 格式（修复卸载路径）
+      # DMG 格式（空间优化+修复）
       - if: github.event.inputs.file == 'dmg'
         name: Generate macOS DMG Installer
         run: |
-          sudo hdiutil create -o /tmp/'${{ env.installer_name }}' -size 18432m -volname '${{ env.installer_name }}' -layout SPUD -fs HFS+J
+          sudo hdiutil create -o /tmp/'${{ env.installer_name }}' -size 17408m -volname '${{ env.installer_name }}' -layout SPUD -fs HFS+J
           sudo hdiutil attach /tmp/'${{ env.installer_name }}'.dmg -noverify -mountpoint /Volumes/'${{ env.installer_name }}'
           sleep 20
           sudo /Applications/'Install macOS ${{ env.installer_name }}'.app/Contents/Resources/createinstallmedia --volume /Volumes/'${{ env.installer_name }}' --nointeraction
-          sleep 30
-          # ✅ 修复：卸载系统自动重命名后的新路径
+          sleep 10
+          # 卸载自动重命名的卷
           hdiutil eject -force /Volumes/'Install macOS ${{ env.installer_name }}'
+          # ✅ 关键：删除安装器释放空间
+          sudo rm -rf /Applications/'Install macOS ${{ env.installer_name }}'.app
           sudo mv /tmp/'${{ env.installer_name }}'.dmg ~/Desktop/'${{ env.installer_name }}'.dmg
 
-      # ISO 格式（修复卸载路径）
+      # ISO 格式（空间终极优化，解决No space left问题）
       - if: github.event.inputs.file == 'iso'
         name: Generate macOS ISO Installer
         run: |
-          sudo hdiutil create -o /tmp/'${{ env.installer_name }}' -size 18432m -volname '${{ env.installer_name }}' -layout SPUD -fs HFS+J
+          sudo hdiutil create -o /tmp/'${{ env.installer_name }}' -size 17408m -volname '${{ env.installer_name }}' -layout SPUD -fs HFS+J
           sudo hdiutil attach /tmp/'${{ env.installer_name }}'.dmg -noverify -mountpoint /Volumes/'${{ env.installer_name }}'
           sleep 20
           sudo /Applications/'Install macOS ${{ env.installer_name }}'.app/Contents/Resources/createinstallmedia --volume /Volumes/'${{ env.installer_name }}' --nointeraction
-          sleep 30
-          # ✅ 修复：卸载系统自动重命名后的新路径
+          sleep 10
+          # 卸载自动重命名的卷
           hdiutil eject -force /Volumes/'Install macOS ${{ env.installer_name }}'
+          
+          # ✅ 核心修复：删除安装器APP，释放15GB+磁盘空间
+          sudo rm -rf /Applications/'Install macOS ${{ env.installer_name }}'.app
+          
+          # 转换为ISO
           hdiutil convert /tmp/'${{ env.installer_name }}'.dmg -format UDTO -o ~/Desktop/'${{ env.installer_name }}'
           mv -v ~/Desktop/'${{ env.installer_name }}'.cdr ~/Desktop/'${{ env.installer_name }}'.iso
           sudo rm -fv /tmp/'${{ env.installer_name }}'.dmg
 
+      # ZIP 格式
       - if: github.event.inputs.file == 'zip'
         name: Generate macOS ZIP Installer
         run: |
